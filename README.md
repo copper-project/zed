@@ -23,8 +23,8 @@ This repository contains:
 
 The Copper dependencies intentionally track the `master` branch of
 [`copper-project/copper-rs`](https://github.com/copper-project/copper-rs). CI
-can be triggered from the main Copper repository with the `copper-rs-master`
-repository dispatch event.
+can be triggered from the main Copper repository by dispatching this `CI`
+workflow via GitHub's `workflow_dispatch` API.
 
 ## Links
 
