@@ -5,8 +5,14 @@ use cu_zed::{
 };
 use cu29::clock::Tov;
 use cu29::prelude::*;
-use cu29_logviz::{apply_tov, log_as_components, log_fallback_payload, log_imu, log_pointcloud};
-use rerun::{Arrows3D, DepthImage, Image, RecordingStream, RecordingStreamBuilder};
+use rerun::components::TransformMat3x3;
+use rerun::datatypes::Mat3x3;
+use rerun::{
+    Arrows3D, DepthImage, Image, Points3D, RecordingStream, RecordingStreamBuilder, Scalars,
+    TextDocument, Transform3D as RerunTransform3D,
+};
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 #[copper_runtime(config = "examples/zed_rerun_demo.ron")]
@@ -69,10 +75,10 @@ impl CuSinkTask for ZedRerunSink {
         self.update_calibration(calibration_msg)?;
         self.update_transforms(transforms_msg)?;
 
-        if let Some((left, right)) = stereo_msg.payload() {
+        if let Some(stereo) = stereo_msg.payload() {
             apply_tov(&self.rec, &stereo_msg.tov);
-            log_rgba_image(&self.rec, "zed/left_camera/image", left)?;
-            log_rgba_image(&self.rec, "zed/right_camera/image", right)?;
+            log_rgba_image(&self.rec, "zed/left_camera/image", &stereo.left)?;
+            log_rgba_image(&self.rec, "zed/right_camera/image", &stereo.right)?;
         }
 
         if let Some(depth) = depth_msg.payload() {
@@ -163,7 +169,7 @@ impl ZedRerunSink {
 
     fn log_rig_transforms(&self, transforms: &ZedRigTransforms, tov: &Tov) -> CuResult<()> {
         apply_tov(&self.rec, tov);
-        log_as_components(
+        log_transform(
             &self.rec,
             "zed/right_camera",
             &transforms.left_to_right.to_transform3d(),
@@ -176,7 +182,7 @@ impl ZedRerunSink {
         log_axes(&self.rec, "zed/right_camera", 0.08)?;
 
         if transforms.has_camera_to_imu {
-            log_as_components(
+            log_transform(
                 &self.rec,
                 "zed/imu",
                 &transforms.camera_to_imu.to_transform3d(),
@@ -191,6 +197,135 @@ impl ZedRerunSink {
 
         Ok(())
     }
+}
+
+fn tov_to_secs(tov: &Tov) -> Option<f64> {
+    match tov {
+        Tov::Time(t) => Some(t.0 as f64 / 1_000_000_000.0),
+        Tov::Range(r) => Some(r.start.0 as f64 / 1_000_000_000.0),
+        Tov::None => None,
+    }
+}
+
+fn apply_tov(rec: &RecordingStream, tov: &Tov) {
+    if let Some(secs) = tov_to_secs(tov) {
+        rec.set_duration_secs("tov", secs);
+    } else {
+        rec.reset_time();
+    }
+}
+
+fn log_scalar(rec: &RecordingStream, path: &str, value: f64) -> CuResult<()> {
+    rec.log(path, &Scalars::new([value]))
+        .map_err(|e| CuError::new_with_cause("Failed to log scalar", e))
+}
+
+fn log_pointcloud<const N: usize>(
+    rec: &RecordingStream,
+    path: &str,
+    pointcloud: &cu_sensor_payloads::PointCloudSoa<N>,
+) -> CuResult<()> {
+    let len = pointcloud.len.min(N);
+    let points = (0..len)
+        .map(|i| {
+            [
+                pointcloud.x[i].value,
+                pointcloud.y[i].value,
+                pointcloud.z[i].value,
+            ]
+        })
+        .collect::<Vec<_>>();
+
+    rec.log(path, &Points3D::new(points))
+        .map_err(|e| CuError::new_with_cause("Failed to log point cloud", e))
+}
+
+fn log_imu(rec: &RecordingStream, base: &str, imu: &ImuPayload) -> CuResult<()> {
+    log_scalar(rec, &format!("{}/accel_x", base), imu.accel_x.value as f64)?;
+    log_scalar(rec, &format!("{}/accel_y", base), imu.accel_y.value as f64)?;
+    log_scalar(rec, &format!("{}/accel_z", base), imu.accel_z.value as f64)?;
+    log_scalar(rec, &format!("{}/gyro_x", base), imu.gyro_x.value as f64)?;
+    log_scalar(rec, &format!("{}/gyro_y", base), imu.gyro_y.value as f64)?;
+    log_scalar(rec, &format!("{}/gyro_z", base), imu.gyro_z.value as f64)?;
+    log_scalar(
+        rec,
+        &format!("{}/temperature_c", base),
+        imu.temperature
+            .get::<cu29::units::si::thermodynamic_temperature::degree_celsius>() as f64,
+    )?;
+    Ok(())
+}
+
+fn log_transform(
+    rec: &RecordingStream,
+    path: &str,
+    transform: &cu_transform::Transform3D<f32>,
+) -> CuResult<()> {
+    let matrix = transform.to_matrix();
+    let translation = [matrix[3][0], matrix[3][1], matrix[3][2]];
+    let mat3 = [
+        matrix[0][0],
+        matrix[0][1],
+        matrix[0][2],
+        matrix[1][0],
+        matrix[1][1],
+        matrix[1][2],
+        matrix[2][0],
+        matrix[2][1],
+        matrix[2][2],
+    ];
+    let transform = RerunTransform3D::new()
+        .with_translation(translation)
+        .with_mat3x3(TransformMat3x3::from(Mat3x3(mat3)));
+
+    rec.log(path, &transform)
+        .map_err(|e| CuError::new_with_cause("Failed to log transform", e))
+}
+
+fn flatten_json(prefix: &str, value: &serde_json::Value) -> BTreeMap<String, serde_json::Value> {
+    let mut out = BTreeMap::new();
+    match value {
+        serde_json::Value::Object(map) => {
+            for (key, value) in map {
+                let path = format!("{}/{}", prefix, key);
+                out.extend(flatten_json(&path, value));
+            }
+        }
+        serde_json::Value::Array(values) => {
+            for (idx, value) in values.iter().enumerate() {
+                let path = format!("{}/{}", prefix, idx);
+                out.extend(flatten_json(&path, value));
+            }
+        }
+        _ => {
+            out.insert(prefix.to_string(), value.clone());
+        }
+    }
+    out
+}
+
+fn log_fallback_payload<T: Serialize>(
+    rec: &RecordingStream,
+    base: &str,
+    payload: &T,
+) -> CuResult<()> {
+    let value = serde_json::to_value(payload)
+        .map_err(|e| CuError::new_with_cause("Failed to serialize payload", e))?;
+    let flat = flatten_json(base, &value);
+    for (path, value) in flat {
+        if let Some(num) = value.as_f64() {
+            log_scalar(rec, &path, num)?;
+        } else if let Some(value_bool) = value.as_bool() {
+            log_scalar(rec, &path, if value_bool { 1.0 } else { 0.0 })?;
+        } else if let Some(text) = value.as_str() {
+            rec.log(path.as_str(), &TextDocument::new(text))
+                .map_err(|e| CuError::new_with_cause("Failed to log text", e))?;
+        } else if !value.is_null() {
+            rec.log(path.as_str(), &TextDocument::new(value.to_string()))
+                .map_err(|e| CuError::new_with_cause("Failed to log text", e))?;
+        }
+    }
+    Ok(())
 }
 
 fn pinhole_from_intrinsics(intrinsics: &cu_zed::ZedCameraIntrinsics) -> rerun::Pinhole {

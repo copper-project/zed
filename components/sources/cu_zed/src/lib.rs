@@ -2,6 +2,9 @@ mod payloads;
 
 pub use payloads::*;
 
+use bincode::de::Decoder;
+use bincode::error::DecodeError;
+use bincode::{Decode, Encode};
 use cu_sensor_payloads::{
     BarometerPayload, CuImage, Distance, ImuPayload, MagnetometerPayload, PointCloudSoa,
     Reflectivity,
@@ -9,8 +12,44 @@ use cu_sensor_payloads::{
 use cu29::prelude::*;
 use cu29::units::si::length::meter;
 use cu29::units::si::ratio::percent;
+use serde::{Deserialize, Serialize};
 
-pub type ZedStereoImages = (CuImage<Vec<u8>>, CuImage<Vec<u8>>);
+#[derive(Default, Debug, Clone, Encode, Serialize, Deserialize, Reflect)]
+#[reflect(from_reflect = false, no_field_bounds, type_path = false)]
+pub struct ZedStereoImages {
+    pub left: CuImage<Vec<u8>>,
+    pub right: CuImage<Vec<u8>>,
+}
+
+impl TypePath for ZedStereoImages {
+    fn type_path() -> &'static str {
+        "cu_zed::ZedStereoImages"
+    }
+
+    fn short_type_path() -> &'static str {
+        "ZedStereoImages"
+    }
+
+    fn type_ident() -> Option<&'static str> {
+        Some("ZedStereoImages")
+    }
+
+    fn crate_name() -> Option<&'static str> {
+        Some("cu_zed")
+    }
+
+    fn module_path() -> Option<&'static str> {
+        Some("cu_zed")
+    }
+}
+
+impl Decode<()> for ZedStereoImages {
+    fn decode<D: Decoder<Context = ()>>(decoder: &mut D) -> Result<Self, DecodeError> {
+        let left: CuImage<Vec<u8>> = Decode::decode(decoder)?;
+        let right: CuImage<Vec<u8>> = Decode::decode(decoder)?;
+        Ok(Self { left, right })
+    }
+}
 
 pub type ZedSourceOutputs = (
     CuMsg<ZedStereoImages>,
@@ -458,10 +497,10 @@ mod linux_impl {
                 .retrieve_depth(&mut slot.depth.mat)
                 .map_err(|e| CuError::new_with_cause("Could not retrieve ZED depth map", e))?;
 
-            stereo.set_payload((
-                image_payload_from_handle(seq, &slot.left.handle, self.left_format),
-                image_payload_from_handle(seq, &slot.right.handle, self.right_format),
-            ));
+            stereo.set_payload(ZedStereoImages {
+                left: image_payload_from_handle(seq, &slot.left.handle, self.left_format),
+                right: image_payload_from_handle(seq, &slot.right.handle, self.right_format),
+            });
             stereo.tov = Tov::Time(frame_tov);
 
             depth.set_payload(raster_payload_from_handle(
