@@ -21,10 +21,12 @@ This repository contains:
 - `components/libs/zed_sdk`: safe Rust wrapper for the Stereolabs ZED C API
 - `components/libs/zed_sdk_sys`: raw FFI crate and optional vendored `zed-c-api` wrapper
 
-The Copper dependencies intentionally track the `master` branch of
-[`copper-project/copper-rs`](https://github.com/copper-project/copper-rs). CI
-can be triggered from the main Copper repository by dispatching this `CI`
-workflow via GitHub's `workflow_dispatch` API.
+The Copper dependencies use Cargo's multi-location support against
+[`copper-project/copper-rs`](https://github.com/copper-project/copper-rs):
+checked-out builds resolve against the `master` branch, while published crate
+metadata advertises the `1.0.0-rc1` crates.io contract. CI can be triggered
+from the main Copper repository by dispatching this `CI` workflow via GitHub's
+`workflow_dispatch` API.
 
 ## Links
 

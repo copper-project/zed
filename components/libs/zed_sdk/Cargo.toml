@@ -18,7 +18,7 @@ path = "src/bin/zed_viz_demo.rs"
 
 [dependencies]
 eframe = { workspace = true }
-zed-sdk-sys = { path = "../zed_sdk_sys" }
+zed-sdk-sys = { workspace = true }
 
 [package.metadata.cargo-shear]
 ignored = []
