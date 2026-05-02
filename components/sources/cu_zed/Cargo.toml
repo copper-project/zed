@@ -28,7 +28,7 @@ serde = { workspace = true }
 cu-transform = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
-zed-sdk = { path = "../../libs/zed_sdk" }
+zed-sdk = { workspace = true }
 
 [dev-dependencies]
 bytemuck = { workspace = true }
