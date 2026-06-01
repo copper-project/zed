@@ -299,7 +299,6 @@ mod linux_impl {
     use cu_sensor_payloads::CuImageBufferFormat;
     use cu_transform::FrameTransform;
     use std::path::PathBuf;
-    use std::sync::Arc;
     use zed_sdk::{
         CalibrationParameters, Camera, CameraImuTransform, CameraInformation, CameraParameters,
         CoordinateSystem, DepthMode, ErrorCode, InputSource, OpenOptions, ReferenceFrame,
@@ -927,7 +926,7 @@ mod linux_impl {
     where
         T: ArrayLike,
     {
-        Arc::strong_count(handle) == 1
+        handle.is_unique()
     }
 
     fn acquire_output_slot_index(slots: &[OutputSlot], next_slot: &mut usize) -> Option<usize> {
