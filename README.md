@@ -24,7 +24,7 @@ This repository contains:
 The Copper dependencies use Cargo's multi-location support against
 [`copper-project/copper-rs`](https://github.com/copper-project/copper-rs):
 checked-out builds resolve against the `master` branch, while published crate
-metadata advertises the `1.0.0-rc1` crates.io contract. CI can be triggered
+metadata advertises the `1.0.0` crates.io contract. CI can be triggered
 from the main Copper repository by dispatching this `CI` workflow via GitHub's
 `workflow_dispatch` API.
 

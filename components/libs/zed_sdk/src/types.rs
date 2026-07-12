@@ -6,12 +6,13 @@ use std::time::Duration;
 use crate::error::{Error, Result};
 use crate::sys;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 /// Depth reconstruction mode used by the SDK during camera open and frame grab.
 pub enum DepthMode {
     /// Disable depth processing.
     None,
     /// Fastest classic stereo mode.
+    #[default]
     Performance,
     /// Higher-quality classic stereo mode.
     Quality,
@@ -36,12 +37,6 @@ impl DepthMode {
             Self::Neural => sys::SL_DEPTH_MODE::SL_DEPTH_MODE_NEURAL,
             Self::NeuralPlus => sys::SL_DEPTH_MODE::SL_DEPTH_MODE_NEURAL_PLUS,
         }
-    }
-}
-
-impl Default for DepthMode {
-    fn default() -> Self {
-        Self::Performance
     }
 }
 
@@ -77,7 +72,7 @@ impl Display for DepthMode {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 /// Output image resolution preset requested during camera open.
 pub enum ResolutionPreset {
     /// 4K HD preset.
@@ -93,6 +88,7 @@ pub enum ResolutionPreset {
     /// 1200p preset.
     Hd1200,
     /// 720p preset.
+    #[default]
     Hd720,
     /// SVGA preset.
     Svga,
@@ -116,12 +112,6 @@ impl ResolutionPreset {
             Self::Vga => sys::SL_RESOLUTION::SL_RESOLUTION_VGA,
             Self::Auto => sys::SL_RESOLUTION::SL_RESOLUTION_AUTO,
         }
-    }
-}
-
-impl Default for ResolutionPreset {
-    fn default() -> Self {
-        Self::Hd720
     }
 }
 
@@ -163,12 +153,13 @@ impl FromStr for ResolutionPreset {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 /// Coordinate system used for depth, point cloud, and pose outputs.
 pub enum CoordinateSystem {
     /// Image-space coordinates.
     Image,
     /// Left-handed coordinates with +Y pointing up.
+    #[default]
     LeftHandedYUp,
     /// Right-handed coordinates with +Y pointing up.
     RightHandedYUp,
@@ -199,13 +190,7 @@ impl CoordinateSystem {
     }
 }
 
-impl Default for CoordinateSystem {
-    fn default() -> Self {
-        Self::LeftHandedYUp
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 /// Unit used for SDK distance values.
 pub enum Unit {
     /// Millimeters.
@@ -213,6 +198,7 @@ pub enum Unit {
     /// Centimeters.
     Centimeter,
     /// Meters.
+    #[default]
     Meter,
     /// Inches.
     Inch,
@@ -232,18 +218,13 @@ impl Unit {
     }
 }
 
-impl Default for Unit {
-    fn default() -> Self {
-        Self::Meter
-    }
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 /// Reference frame used when retrieving runtime measurements.
 pub enum ReferenceFrame {
     /// Measurements are expressed in the world frame.
     World,
     /// Measurements are expressed in the current camera frame.
+    #[default]
     Camera,
 }
 
@@ -253,12 +234,6 @@ impl ReferenceFrame {
             Self::World => sys::SL_REFERENCE_FRAME::SL_REFERENCE_FRAME_WORLD,
             Self::Camera => sys::SL_REFERENCE_FRAME::SL_REFERENCE_FRAME_CAMERA,
         }
-    }
-}
-
-impl Default for ReferenceFrame {
-    fn default() -> Self {
-        Self::Camera
     }
 }
 

@@ -60,6 +60,11 @@ impl MatType {
 /// Marker trait for Rust types that can back a ZED SDK matrix.
 ///
 /// Implementations must match the native SDK element layout exactly.
+///
+/// # Safety
+///
+/// Implementors must have the exact size, alignment, and field layout of the
+/// native ZED matrix element identified by [`Self::MAT_TYPE`].
 pub unsafe trait MatElement: Copy + 'static {
     const MAT_TYPE: MatType;
 }

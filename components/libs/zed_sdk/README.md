@@ -56,7 +56,7 @@ The crate includes `zed_viz_demo`, an `egui` viewer that overlays clipped depth 
 From this directory:
 
 ```bash
-cargo run --release --bin zed_viz_demo -- PERFORMANCE
+cargo run --release --features demo --bin zed_viz_demo -- PERFORMANCE
 ```
 
 Supported depth mode arguments are:

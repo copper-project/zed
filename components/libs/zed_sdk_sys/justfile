@@ -46,7 +46,7 @@ build-demo: _vendor-init _require-sdk
 
 	crate_dir="$(cd "{{justfile_directory()}}" && pwd)"
 
-	cargo build --manifest-path "$crate_dir/Cargo.toml" --bin zed_lowlevel_demo
+	cargo build --manifest-path "$crate_dir/Cargo.toml" --features demo --bin zed_lowlevel_demo
 
 demo depth_mode="NEURAL_LIGHT": _vendor-init _require-sdk
 	#!/usr/bin/env bash
@@ -54,6 +54,6 @@ demo depth_mode="NEURAL_LIGHT": _vendor-init _require-sdk
 
 	crate_dir="$(cd "{{justfile_directory()}}" && pwd)"
 
-	cargo run --manifest-path "$crate_dir/Cargo.toml" --bin zed_lowlevel_demo -- "{{depth_mode}}"
+	cargo run --manifest-path "$crate_dir/Cargo.toml" --features demo --bin zed_lowlevel_demo -- "{{depth_mode}}"
 
 run-demo: demo

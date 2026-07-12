@@ -45,3 +45,6 @@ wired correctly.
 
 `just demo QUALITY` or another ZED depth mode can be used to override the
 default `NEURAL_LIGHT` mode.
+
+When invoking Cargo directly, enable the hardware-only demo target with
+`--features demo`.

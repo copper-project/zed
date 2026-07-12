@@ -15,6 +15,11 @@ path = "src/lib.rs"
 [[bin]]
 name = "zed_viz_demo"
 path = "src/bin/zed_viz_demo.rs"
+required-features = ["demo"]
+
+[features]
+default = []
+demo = []
 
 [dependencies]
 eframe = { workspace = true }

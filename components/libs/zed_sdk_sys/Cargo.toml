@@ -16,9 +16,11 @@ path = "src/lib.rs"
 [[bin]]
 name = "zed_lowlevel_demo"
 path = "src/bin/zed_lowlevel_demo.rs"
+required-features = ["demo"]
 
 [features]
 default = []
+demo = []
 
 [package.metadata.cargo-shear]
 ignored = []
