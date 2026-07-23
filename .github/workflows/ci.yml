@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
+    branches: [master]
   pull_request:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -16,13 +18,31 @@ jobs:
     name: Check against copper-rs master
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Check out Zed
         uses: actions/checkout@v6
         with:
+          path: zed
           submodules: recursive
+
+      - name: Check out copper-rs master
+        uses: actions/checkout@v6
+        with:
+          repository: copper-project/copper-rs
+          ref: master
+          path: copper-rs
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Reject Cargo Git dependencies
+        run: |
+          if rg -n --glob Cargo.toml \
+            '(^|[,{[:space:]])(git|branch|rev|tag)[[:space:]]*=|\[patch\."https?://' \
+            zed copper-rs; then
+            echo "Cargo Git dependencies are forbidden; use local path dependencies." >&2
+            exit 1
+          fi
+
       - name: Check
         run: cargo check -p cu-zed --all-targets --features zed-rerun-demo
+        working-directory: zed
