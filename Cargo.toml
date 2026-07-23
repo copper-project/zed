@@ -7,6 +7,11 @@ members = [
 default-members = ["components/sources/cu_zed"]
 resolver = "2"
 
+[patch.crates-io]
+cu29 = { git = "https://github.com/copper-project/copper-rs.git", branch = "gbin/document-release-versioning" }
+cu-sensor-payloads = { git = "https://github.com/copper-project/copper-rs.git", branch = "gbin/document-release-versioning" }
+cu-transform = { git = "https://github.com/copper-project/copper-rs.git", branch = "gbin/document-release-versioning" }
+
 [workspace.package]
 version = "1.1.0-dev"
 authors = ["Guillaume Binet <gbin@gootz.net>"]
@@ -19,9 +24,9 @@ homepage = "https://github.com/copper-project"
 repository = "https://github.com/copper-project/zed"
 
 [workspace.dependencies]
-cu29 = { git = "https://github.com/copper-project/copper-rs.git", branch = "gbin/document-release-versioning", version = "1.1.0-dev" }
-cu-sensor-payloads = { git = "https://github.com/copper-project/copper-rs.git", branch = "gbin/document-release-versioning", version = "1.1.0-dev" }
-cu-transform = { git = "https://github.com/copper-project/copper-rs.git", branch = "gbin/document-release-versioning", version = "1.1.0-dev" }
+cu29 = { version = "1.1.0-dev" }
+cu-sensor-payloads = { version = "1.1.0-dev" }
+cu-transform = { version = "1.1.0-dev" }
 zed-sdk = { path = "components/libs/zed_sdk", version = "1.1.0-dev" }
 zed-sdk-sys = { path = "components/libs/zed_sdk_sys", version = "1.1.0-dev" }
 
