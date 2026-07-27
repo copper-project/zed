@@ -17,7 +17,8 @@ The demo in this directory wires both together and streams the result to Rerun:
 `cu_zed::Zed` is a `CuSrcTask` with this output tuple:
 
 1. `cu_zed::ZedStereoImages`
-2. `cu_zed::ZedDepthMap<Vec<f32>>`
+2. `cu_zed::ZedDepthMap`, a generic integer depth map specialized as
+   `CuDepthInteger<u16, CuDepthMillimeter>`
 3. `cu_zed::ZedConfidenceMap<Vec<f32>>`
 4. `cu29::prelude::CuLatchedStateUpdate<cu_zed::ZedCalibrationBundle>`
 5. `cu29::prelude::CuLatchedStateUpdate<cu_zed::ZedRigTransforms>`
@@ -29,7 +30,8 @@ The demo in this directory wires both together and streams the result to Rerun:
 Semantics:
 
 - Stereo images are left/right RGBA frames in pooled host memory.
-- Depth is a dense `f32` raster in pooled host memory.
+- Depth is a dense `u16` millimeter raster in pooled host memory. Zero is invalid,
+  and the ZED SDK clamps valid values at 65000 millimeters.
 - Confidence is optional and only emitted when enabled in config.
 - Calibration and rig transforms are latched state updates:
   the source publishes `Set(...)` when the task starts, then `NoChange` after that.
@@ -204,7 +206,7 @@ These are designed to be consumed as Copper latched state. A downstream task sho
 
 `ZedDepthToPointCloud<const MAX_POINTS: usize>` is a pure `CuTask` that consumes:
 
-- `cu_zed::ZedDepthMap<Vec<f32>>`
+- `cu_zed::ZedDepthMap` (`CuDepthInteger<u16, CuDepthMillimeter>`)
 - `cu29::prelude::CuLatchedStateUpdate<cu_zed::ZedCalibrationBundle>`
 
 and produces:
@@ -215,8 +217,8 @@ The task:
 
 - caches the latest calibration bundle
 - rescales intrinsics if the depth raster size differs from the calibration image size
-- converts the ZED depth unit into meters
-- skips invalid depth samples (`NaN`, non-finite, or `<= 0`)
+- converts millimeter samples into typed lengths/meters
+- skips invalid zero-valued depth samples
 - writes a standard Copper point cloud with:
   - `x`, `y`, `z` in meters
   - `i = 0%`
@@ -294,7 +296,7 @@ This is the standard graph shape:
         (
             src: "zed",
             dst: "pointcloud",
-            msg: "cu_zed::ZedDepthMap<Vec<f32>>",
+            msg: "cu_sensor_payloads::CuDepthMap<Vec<u16>, cu_sensor_payloads::CuDepthInteger<u16, cu_sensor_payloads::CuDepthMillimeter>>",
         ),
         (
             src: "zed",

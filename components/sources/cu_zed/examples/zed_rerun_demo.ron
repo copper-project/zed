@@ -39,7 +39,7 @@
         (
             src: "zed",
             dst: "rerun",
-            msg: "cu_zed::ZedDepthMap<Vec<f32>>",
+            msg: "cu_sensor_payloads::CuDepthMap<Vec<u16>, cu_sensor_payloads::CuDepthInteger<u16, cu_sensor_payloads::CuDepthMillimeter>>",
         ),
         (
             src: "zed",
@@ -59,7 +59,7 @@
         (
             src: "zed",
             dst: "pointcloud",
-            msg: "cu_zed::ZedDepthMap<Vec<f32>>",
+            msg: "cu_sensor_payloads::CuDepthMap<Vec<u16>, cu_sensor_payloads::CuDepthInteger<u16, cu_sensor_payloads::CuDepthMillimeter>>",
         ),
         (
             src: "zed",

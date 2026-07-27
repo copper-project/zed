@@ -213,6 +213,14 @@ impl Camera {
         self.retrieve_measure_raw(sys::SL_MEASURE::SL_MEASURE_DEPTH, target)
     }
 
+    /// Retrieves a compact depth map in millimeters.
+    ///
+    /// Invalid values are zero and valid depths are clamped to 65000 millimeters
+    /// by the ZED SDK.
+    pub fn retrieve_depth_u16_mm(&mut self, target: &mut Mat<u16>) -> Result<()> {
+        self.retrieve_measure_raw(sys::SL_MEASURE::SL_MEASURE_DEPTH_U16_MM, target)
+    }
+
     /// Retrieves the depth confidence map.
     pub fn retrieve_confidence(&mut self, target: &mut Mat<f32>) -> Result<()> {
         self.retrieve_measure_raw(sys::SL_MEASURE::SL_MEASURE_CONFIDENCE, target)

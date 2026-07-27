@@ -2,6 +2,7 @@ use bincode::de::Decoder;
 use bincode::error::DecodeError;
 use bincode::{Decode, Encode};
 use core::fmt::Debug;
+use cu_sensor_payloads::{CuDepthInteger, CuDepthMap, CuDepthMillimeter};
 use cu_transform::FrameTransform;
 use cu29::prelude::*;
 use serde::{Deserialize, Serialize, Serializer};
@@ -138,12 +139,14 @@ macro_rules! impl_f32_raster_payload {
     };
 }
 
-impl_f32_raster_payload!(ZedDepthMap, "cu_zed::ZedDepthMap", "ZedDepthMap");
 impl_f32_raster_payload!(
     ZedConfidenceMap,
     "cu_zed::ZedConfidenceMap",
     "ZedConfidenceMap"
 );
+
+/// Compact ZED depth map using unsigned 16-bit samples at one millimeter per increment.
+pub type ZedDepthMap = CuDepthMap<Vec<u16>, CuDepthInteger<u16, CuDepthMillimeter>>;
 
 #[derive(
     Default, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Reflect,
