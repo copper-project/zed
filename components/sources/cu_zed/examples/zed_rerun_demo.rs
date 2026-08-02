@@ -32,7 +32,7 @@ impl CuSinkTask for ZedRerunSink {
     type Input<'m> = input_msg!(
         'm,
         ZedStereoImages,
-        ZedDepthMap<Vec<f32>>,
+        ZedDepthMap,
         ZedConfidenceMap<Vec<f32>>,
         CuLatchedStateUpdate<ZedCalibrationBundle>,
         CuLatchedStateUpdate<ZedRigTransforms>,
@@ -83,12 +83,12 @@ impl CuSinkTask for ZedRerunSink {
 
         if let Some(depth) = depth_msg.payload() {
             apply_tov(&self.rec, &depth_msg.tov);
-            log_depth_map(&self.rec, "zed/left_camera/depth", depth)?;
+            log_u16_depth_map(&self.rec, "zed/left_camera/depth", depth)?;
         }
 
         if let Some(confidence) = confidence_msg.payload() {
             apply_tov(&self.rec, &confidence_msg.tov);
-            log_depth_map(&self.rec, "zed/left_camera/confidence", confidence)?;
+            log_float_raster(&self.rec, "zed/left_camera/confidence", confidence)?;
         }
 
         if let Some(pointcloud) = pointcloud_msg.payload() {
@@ -353,69 +353,45 @@ fn log_axes(rec: &RecordingStream, path: &str, axis_len: f32) -> CuResult<()> {
         .map_err(|e| CuError::new_with_cause("Failed to log axes", e))
 }
 
-fn log_depth_map<T>(rec: &RecordingStream, path: &str, payload: &T) -> CuResult<()>
-where
-    T: ZedFloatRaster,
-{
-    let bytes = payload.packed_bytes();
+fn log_u16_depth_map(rec: &RecordingStream, path: &str, payload: &ZedDepthMap) -> CuResult<()> {
+    let bytes = payload.with_samples(|samples, format| {
+        pack_raster_bytes(samples, format.width, format.height, format.stride)
+    });
     let image = DepthImage::from_data_type_and_bytes(
         bytes,
-        [payload.width(), payload.height()],
-        rerun::ChannelDatatype::F32,
+        [payload.format.width, payload.format.height],
+        rerun::ChannelDatatype::U16,
     )
-    .with_meter(1.0)
+    .with_meter(ZedDepthMap::encoding_descriptor().units_per_meter)
     .with_colormap(rerun::components::Colormap::Turbo);
 
     rec.log(path, &image)
         .map_err(|e| CuError::new_with_cause("Failed to log depth image", e))
 }
 
-trait ZedFloatRaster {
-    fn width(&self) -> u32;
-    fn height(&self) -> u32;
-    fn packed_bytes(&self) -> Vec<u8>;
-}
+fn log_float_raster(
+    rec: &RecordingStream,
+    path: &str,
+    payload: &ZedConfidenceMap<Vec<f32>>,
+) -> CuResult<()> {
+    let bytes = payload.buffer_handle.with_inner(|inner| {
+        pack_raster_bytes(
+            &inner[..],
+            payload.format.width,
+            payload.format.height,
+            payload.format.stride,
+        )
+    });
+    let image = DepthImage::from_data_type_and_bytes(
+        bytes,
+        [payload.format.width, payload.format.height],
+        rerun::ChannelDatatype::F32,
+    )
+    .with_meter(1.0)
+    .with_colormap(rerun::components::Colormap::Turbo);
 
-impl ZedFloatRaster for ZedDepthMap<Vec<f32>> {
-    fn width(&self) -> u32 {
-        self.format.width
-    }
-
-    fn height(&self) -> u32 {
-        self.format.height
-    }
-
-    fn packed_bytes(&self) -> Vec<u8> {
-        self.buffer_handle.with_inner(|inner| {
-            pack_f32_raster_bytes(
-                &inner[..],
-                self.format.width,
-                self.format.height,
-                self.format.stride,
-            )
-        })
-    }
-}
-
-impl ZedFloatRaster for ZedConfidenceMap<Vec<f32>> {
-    fn width(&self) -> u32 {
-        self.format.width
-    }
-
-    fn height(&self) -> u32 {
-        self.format.height
-    }
-
-    fn packed_bytes(&self) -> Vec<u8> {
-        self.buffer_handle.with_inner(|inner| {
-            pack_f32_raster_bytes(
-                &inner[..],
-                self.format.width,
-                self.format.height,
-                self.format.stride,
-            )
-        })
-    }
+    rec.log(path, &image)
+        .map_err(|e| CuError::new_with_cause("Failed to log float raster", e))
 }
 
 fn log_rgba_image(
@@ -443,7 +419,12 @@ fn log_rgba_image(
         .map_err(|e| CuError::new_with_cause("Failed to log RGBA image", e))
 }
 
-fn pack_f32_raster_bytes(values: &[f32], width: u32, height: u32, stride: u32) -> Vec<u8> {
+fn pack_raster_bytes<T: bytemuck::Pod>(
+    values: &[T],
+    width: u32,
+    height: u32,
+    stride: u32,
+) -> Vec<u8> {
     let width = width as usize;
     let height = height as usize;
     let stride = stride as usize;

@@ -6,8 +6,8 @@ use bincode::de::Decoder;
 use bincode::error::DecodeError;
 use bincode::{Decode, Encode};
 use cu_sensor_payloads::{
-    BarometerPayload, CuImage, Distance, ImuPayload, MagnetometerPayload, PointCloudSoa,
-    Reflectivity,
+    BarometerPayload, CuDepthMapFormat, CuImage, Distance, ImuPayload, MagnetometerPayload,
+    PointCloudSoa, Reflectivity,
 };
 use cu29::prelude::*;
 use cu29::units::si::length::meter;
@@ -53,7 +53,7 @@ impl Decode<()> for ZedStereoImages {
 
 pub type ZedSourceOutputs = (
     CuMsg<ZedStereoImages>,
-    CuMsg<ZedDepthMap<Vec<f32>>>,
+    CuMsg<ZedDepthMap>,
     CuMsg<ZedConfidenceMap<Vec<f32>>>,
     CuMsg<CuLatchedStateUpdate<ZedCalibrationBundle>>,
     CuMsg<CuLatchedStateUpdate<ZedRigTransforms>>,
@@ -85,8 +85,7 @@ impl<const MAX_POINTS: usize> Freezable for ZedDepthToPointCloud<MAX_POINTS> {}
 
 impl<const MAX_POINTS: usize> CuTask for ZedDepthToPointCloud<MAX_POINTS> {
     type Resources<'r> = ();
-    type Input<'m> =
-        input_msg!('m, ZedDepthMap<Vec<f32>>, CuLatchedStateUpdate<ZedCalibrationBundle>);
+    type Input<'m> = input_msg!('m, ZedDepthMap, CuLatchedStateUpdate<ZedCalibrationBundle>);
     type Output<'m> = output_msg!(PointCloudSoa<MAX_POINTS>);
 
     fn new(_config: Option<&ComponentConfig>, _resources: Self::Resources<'_>) -> CuResult<Self>
@@ -125,23 +124,28 @@ impl<const MAX_POINTS: usize> CuTask for ZedDepthToPointCloud<MAX_POINTS> {
             let pointcloud = output.payload_mut().get_or_insert_with(Default::default);
             pointcloud.len = 0;
 
-            depth.buffer_handle.with_inner(|samples| {
-                for row in 0..depth.format.height as usize {
-                    let row_offset = row * depth.format.stride as usize;
-                    for col in 0..depth.format.width as usize {
-                        let depth_value = samples[row_offset + col];
-                        if !depth_value.is_finite() || depth_value <= 0.0 {
+            depth.with_samples(|samples, format| {
+                for row in 0..format.height as usize {
+                    let row_offset = row * format.stride as usize;
+                    for col in 0..format.width as usize {
+                        let Some(depth_value) =
+                            ZedDepthMap::decode_sample(samples[row_offset + col])
+                        else {
                             continue;
-                        }
+                        };
 
                         if pointcloud.len == MAX_POINTS {
                             return Err(CuError::from(format!(
                                 "ZED point cloud capacity {MAX_POINTS} exceeded while projecting {}x{} depth map",
-                                depth.format.width, depth.format.height
+                                format.width, format.height
                             )));
                         }
 
-                        let (x, y, z) = projection.project(col as f32, row as f32, depth_value)?;
+                        let (x, y, z) = projection.project(
+                            col as f32,
+                            row as f32,
+                            depth_value.get::<meter>(),
+                        )?;
                         let idx = pointcloud.len;
                         pointcloud.tov[idx] = point_tov;
                         pointcloud.x[idx] = Distance::new::<meter>(x);
@@ -187,11 +191,10 @@ struct ProjectionIntrinsics {
     cx: f32,
     cy: f32,
     y_sign: f32,
-    depth_scale_m: f32,
 }
 
 impl ProjectionIntrinsics {
-    fn from_bundle(format: ZedRasterFormat, calibration: &ZedCalibrationBundle) -> CuResult<Self> {
+    fn from_bundle(format: CuDepthMapFormat, calibration: &ZedCalibrationBundle) -> CuResult<Self> {
         if calibration.left.width == 0 || calibration.left.height == 0 {
             return Err(CuError::from("ZED calibration reported a zero-sized image"));
         }
@@ -217,12 +220,11 @@ impl ProjectionIntrinsics {
             cx: calibration.left.cx * scale_x,
             cy: calibration.left.cy * scale_y,
             y_sign,
-            depth_scale_m: depth_unit_scale_m(calibration.coordinate_unit),
         })
     }
 
-    fn project(&self, pixel_x: f32, pixel_y: f32, raw_depth: f32) -> CuResult<(f32, f32, f32)> {
-        let z = raw_depth * self.depth_scale_m;
+    fn project(&self, pixel_x: f32, pixel_y: f32, depth_m: f32) -> CuResult<(f32, f32, f32)> {
+        let z = depth_m;
         let x = (pixel_x - self.cx) * z / self.fx;
         let y = self.y_sign * (pixel_y - self.cy) * z / self.fy;
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
@@ -231,16 +233,6 @@ impl ProjectionIntrinsics {
             ));
         }
         Ok((x, y, z))
-    }
-}
-
-fn depth_unit_scale_m(unit: ZedCoordinateUnit) -> f32 {
-    match unit {
-        ZedCoordinateUnit::Millimeter => 1.0e-3,
-        ZedCoordinateUnit::Centimeter => 1.0e-2,
-        ZedCoordinateUnit::Meter => 1.0,
-        ZedCoordinateUnit::Inch => 0.0254,
-        ZedCoordinateUnit::Foot => 0.3048,
     }
 }
 
@@ -311,6 +303,11 @@ mod linux_impl {
         mat: Mat<Rgba8>,
     }
 
+    struct DepthSlot {
+        handle: CuHandle<Vec<u16>>,
+        mat: Mat<u16>,
+    }
+
     struct RasterSlot {
         handle: CuHandle<Vec<f32>>,
         mat: Mat<f32>,
@@ -319,7 +316,7 @@ mod linux_impl {
     struct OutputSlot {
         left: ImageSlot,
         right: ImageSlot,
-        depth: RasterSlot,
+        depth: DepthSlot,
         confidence: Option<RasterSlot>,
     }
 
@@ -350,7 +347,7 @@ mod linux_impl {
         #[reflect(ignore)]
         right_format: CuImageBufferFormat,
         #[reflect(ignore)]
-        depth_format: ZedRasterFormat,
+        depth_format: CuDepthMapFormat,
         #[reflect(ignore)]
         confidence_format: Option<ZedRasterFormat>,
         emit_confidence: bool,
@@ -418,8 +415,8 @@ mod linux_impl {
 
             let left_format = rgba_format(resolution);
             let right_format = rgba_format(resolution);
-            let depth_format = raster_format(resolution);
-            let confidence_format = emit_confidence.then_some(depth_format);
+            let depth_format = depth_map_format(resolution);
+            let confidence_format = emit_confidence.then(|| raster_format(resolution));
             let slots = build_output_slots(
                 pool_slots,
                 resolution,
@@ -493,7 +490,7 @@ mod linux_impl {
                 .retrieve_right(&mut slot.right.mat)
                 .map_err(|e| CuError::new_with_cause("Could not retrieve ZED right image", e))?;
             self.camera
-                .retrieve_depth(&mut slot.depth.mat)
+                .retrieve_depth_u16_mm(&mut slot.depth.mat)
                 .map_err(|e| CuError::new_with_cause("Could not retrieve ZED depth map", e))?;
 
             stereo.set_payload(ZedStereoImages {
@@ -502,11 +499,9 @@ mod linux_impl {
             });
             stereo.tov = Tov::Time(frame_tov);
 
-            depth.set_payload(raster_payload_from_handle(
-                seq,
-                &slot.depth.handle,
+            depth.set_payload(ZedDepthMap::from_integer(
                 self.depth_format,
-                ZedDepthMap::new,
+                slot.depth.handle.clone(),
             ));
             depth.tov = Tov::Time(frame_tov);
 
@@ -857,12 +852,20 @@ mod linux_impl {
         }
     }
 
+    fn depth_map_format(resolution: Resolution) -> CuDepthMapFormat {
+        CuDepthMapFormat {
+            width: resolution.width(),
+            height: resolution.height(),
+            stride: resolution.width(),
+        }
+    }
+
     fn build_output_slots(
         slot_count: usize,
         resolution: Resolution,
         left_format: CuImageBufferFormat,
         right_format: CuImageBufferFormat,
-        depth_format: ZedRasterFormat,
+        depth_format: CuDepthMapFormat,
         confidence_format: Option<ZedRasterFormat>,
     ) -> CuResult<Vec<OutputSlot>> {
         (0..slot_count)
@@ -870,7 +873,7 @@ mod linux_impl {
                 Ok(OutputSlot {
                     left: build_image_slot(resolution, left_format)?,
                     right: build_image_slot(resolution, right_format)?,
-                    depth: build_raster_slot(resolution, depth_format)?,
+                    depth: build_depth_slot(resolution, depth_format)?,
                     confidence: confidence_format
                         .map(|format| build_raster_slot(resolution, format))
                         .transpose()?,
@@ -922,6 +925,17 @@ mod linux_impl {
         Ok(RasterSlot { handle, mat })
     }
 
+    fn build_depth_slot(resolution: Resolution, format: CuDepthMapFormat) -> CuResult<DepthSlot> {
+        let handle = CuHandle::new_detached(vec![0u16; format.required_elements()]);
+        let (ptr, len_elements) = handle.with_inner_mut(|inner| (inner.as_mut_ptr(), inner.len()));
+        let mat = unsafe {
+            Mat::from_external_cpu_buffer(resolution, format.stride as usize, len_elements, ptr)
+        }
+        .map_err(|e| CuError::new_with_cause("Could not alias ZED depth buffer as sl::Mat", e))?;
+
+        Ok(DepthSlot { handle, mat })
+    }
+
     fn handle_is_available<T>(handle: &CuHandle<T>) -> bool
     where
         T: ArrayLike,
@@ -971,12 +985,6 @@ mod linux_impl {
 
     trait RasterSeq {
         fn set_seq(&mut self, seq: u64);
-    }
-
-    impl RasterSeq for ZedDepthMap<Vec<f32>> {
-        fn set_seq(&mut self, seq: u64) {
-            self.seq = seq;
-        }
     }
 
     impl RasterSeq for ZedConfidenceMap<Vec<f32>> {
@@ -1237,9 +1245,9 @@ mod tests {
         }
     }
 
-    fn depth_msg(width: u32, height: u32, values: Vec<f32>) -> CuMsg<ZedDepthMap<Vec<f32>>> {
-        let mut msg = CuMsg::new(Some(ZedDepthMap::new(
-            ZedRasterFormat {
+    fn depth_msg(width: u32, height: u32, values: Vec<u16>) -> CuMsg<ZedDepthMap> {
+        let mut msg = CuMsg::new(Some(ZedDepthMap::from_integer(
+            CuDepthMapFormat {
                 width,
                 height,
                 stride: width,
@@ -1254,7 +1262,7 @@ mod tests {
     fn depth_to_pointcloud_projects_image_coordinates() {
         let ctx = CuContext::new_with_clock();
         let mut task = ZedDepthToPointCloud::<4>::new(None, ()).expect("task");
-        let depth = depth_msg(2, 2, vec![2.0, 2.0, 2.0, 2.0]);
+        let depth = depth_msg(2, 2, vec![2_000, 2_000, 2_000, 2_000]);
         let calibration = CuMsg::new(Some(CuLatchedStateUpdate::Set(calibration_bundle(
             ZedCoordinateSystem::Image,
             2,
@@ -1279,7 +1287,7 @@ mod tests {
     fn depth_to_pointcloud_flips_y_for_left_handed_y_up() {
         let ctx = CuContext::new_with_clock();
         let mut task = ZedDepthToPointCloud::<4>::new(None, ()).expect("task");
-        let depth = depth_msg(2, 2, vec![1.0, 1.0, 1.0, 1.0]);
+        let depth = depth_msg(2, 2, vec![1_000, 1_000, 1_000, 1_000]);
         let calibration = CuMsg::new(Some(CuLatchedStateUpdate::Set(calibration_bundle(
             ZedCoordinateSystem::LeftHandedYUp,
             2,
@@ -1300,7 +1308,7 @@ mod tests {
     fn depth_to_pointcloud_scales_intrinsics_to_raster_size() {
         let ctx = CuContext::new_with_clock();
         let mut task = ZedDepthToPointCloud::<4>::new(None, ()).expect("task");
-        let depth = depth_msg(2, 2, vec![4.0, 4.0, 4.0, 4.0]);
+        let depth = depth_msg(2, 2, vec![4_000, 4_000, 4_000, 4_000]);
         let calibration = CuMsg::new(Some(CuLatchedStateUpdate::Set(calibration_bundle(
             ZedCoordinateSystem::Image,
             4,
@@ -1321,7 +1329,7 @@ mod tests {
     fn depth_to_pointcloud_skips_invalid_depth_samples() {
         let ctx = CuContext::new_with_clock();
         let mut task = ZedDepthToPointCloud::<4>::new(None, ()).expect("task");
-        let depth = depth_msg(2, 2, vec![1.0, 0.0, f32::NAN, -1.0]);
+        let depth = depth_msg(2, 2, vec![1_000, 0, 0, 0]);
         let calibration = CuMsg::new(Some(CuLatchedStateUpdate::Set(calibration_bundle(
             ZedCoordinateSystem::Image,
             2,
