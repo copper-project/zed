@@ -8,7 +8,7 @@ default-members = ["components/sources/cu_zed"]
 resolver = "2"
 
 [workspace.package]
-version = "1.1.0"
+version = "1.2.0-dev"
 authors = ["Guillaume Binet <gbin@gootz.net>"]
 edition = "2024"
 rust-version = "1.95"
@@ -19,11 +19,11 @@ homepage = "https://github.com/copper-project"
 repository = "https://github.com/copper-project/zed"
 
 [workspace.dependencies]
-cu29 = { path = "../copper-rs/core/cu29", version = "1.1.0" }
-cu-sensor-payloads = { path = "../copper-rs/components/payloads/cu_sensor_payloads", version = "1.1.0" }
-cu-transform = { path = "../copper-rs/components/libs/cu_transform", version = "1.1.0" }
-zed-sdk = { path = "components/libs/zed_sdk", version = "1.1.0" }
-zed-sdk-sys = { path = "components/libs/zed_sdk_sys", version = "1.1.0" }
+cu29 = { path = "../copper-rs/core/cu29", version = "1.2.0-dev" }
+cu-sensor-payloads = { path = "../copper-rs/components/payloads/cu_sensor_payloads", version = "1.2.0-dev" }
+cu-transform = { path = "../copper-rs/components/libs/cu_transform", version = "1.2.0-dev" }
+zed-sdk = { path = "components/libs/zed_sdk", version = "1.2.0-dev" }
+zed-sdk-sys = { path = "components/libs/zed_sdk_sys", version = "1.2.0-dev" }
 
 bincode = { package = "cu-bincode", version = "2.0", default-features = false, features = [
   "derive",
