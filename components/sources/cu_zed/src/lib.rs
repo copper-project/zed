@@ -2,19 +2,20 @@ mod payloads;
 
 pub use payloads::*;
 
-use bincode::de::Decoder;
-use bincode::error::DecodeError;
-use bincode::{Decode, Encode};
 use cu_sensor_payloads::{
     BarometerPayload, CuDepthMapFormat, CuImage, Distance, ImuPayload, MagnetometerPayload,
     PointCloudSoa, Reflectivity,
 };
+use cu29::bincode::de::Decoder;
+use cu29::bincode::error::DecodeError;
+use cu29::bincode::{Decode, Encode};
 use cu29::prelude::*;
 use cu29::units::si::length::meter;
 use cu29::units::si::ratio::percent;
 use serde::{Deserialize, Serialize};
 
 #[derive(Default, Debug, Clone, Encode, Serialize, Deserialize, Reflect)]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false, no_field_bounds, type_path = false)]
 pub struct ZedStereoImages {
     pub left: CuImage<Vec<u8>>,

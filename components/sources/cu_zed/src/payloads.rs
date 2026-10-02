@@ -1,13 +1,14 @@
-use bincode::de::Decoder;
-use bincode::error::DecodeError;
-use bincode::{Decode, Encode};
 use core::fmt::Debug;
 use cu_sensor_payloads::{CuDepthInteger, CuDepthMap, CuDepthMillimeter};
 use cu_transform::FrameTransform;
+use cu29::bincode::de::Decoder;
+use cu29::bincode::error::DecodeError;
+use cu29::bincode::{Decode, Encode};
 use cu29::prelude::*;
 use serde::{Deserialize, Serialize, Serializer};
 
 #[derive(Default, Debug, Encode, Decode, Clone, Copy, Serialize, Deserialize, Reflect)]
+#[bincode(crate = "cu29::bincode")]
 pub struct ZedRasterFormat {
     pub width: u32,
     pub height: u32,
@@ -23,6 +24,7 @@ impl ZedRasterFormat {
 macro_rules! impl_f32_raster_payload {
     ($name:ident, $type_path:literal, $ident:literal) => {
         #[derive(Debug, Default, Clone, Encode, Reflect)]
+        #[bincode(crate = "cu29::bincode")]
         #[reflect(from_reflect = false, no_field_bounds, type_path = false)]
         pub struct $name<A>
         where
@@ -151,6 +153,7 @@ pub type ZedDepthMap = CuDepthMap<Vec<u16>, CuDepthInteger<u16, CuDepthMillimete
 #[derive(
     Default, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Reflect,
 )]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false)]
 pub enum ZedCoordinateSystem {
     Image,
@@ -165,6 +168,7 @@ pub enum ZedCoordinateSystem {
 #[derive(
     Default, Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Encode, Decode, Reflect,
 )]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false)]
 pub enum ZedCoordinateUnit {
     Millimeter,
@@ -176,6 +180,7 @@ pub enum ZedCoordinateUnit {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode, Reflect)]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false)]
 pub struct ZedCameraIntrinsics {
     pub fx: f32,
@@ -192,6 +197,7 @@ pub struct ZedCameraIntrinsics {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode, Reflect)]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false)]
 pub struct ZedCalibrationBundle {
     pub serial_number: u32,
@@ -209,6 +215,7 @@ pub struct ZedCalibrationBundle {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode, Reflect)]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false)]
 pub struct ZedFrameMeta {
     pub seq: u64,
@@ -224,6 +231,7 @@ pub struct ZedFrameMeta {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode, Reflect)]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false)]
 pub struct ZedNamedTransform {
     pub matrix: [[f32; 4]; 4],
@@ -246,6 +254,7 @@ impl ZedNamedTransform {
 }
 
 #[derive(Default, Clone, Debug, Serialize, Deserialize, Encode, Decode, Reflect)]
+#[bincode(crate = "cu29::bincode")]
 #[reflect(from_reflect = false)]
 pub struct ZedRigTransforms {
     pub left_to_right: ZedNamedTransform,

@@ -25,10 +25,6 @@ cu-transform = { version = "=1.3.0-dev" }
 zed-sdk = { path = "components/libs/zed_sdk", version = "1.3.0-dev" }
 zed-sdk-sys = { path = "components/libs/zed_sdk_sys", version = "1.3.0-dev" }
 
-bincode = { package = "cu-bincode", version = "2.0", default-features = false, features = [
-  "derive",
-  "alloc",
-] }
 serde = { version = "1.0", default-features = false, features = [
   "derive",
   "alloc",

@@ -23,7 +23,6 @@ zed-rerun-demo = []
 [dependencies]
 cu29 = { workspace = true }
 cu-sensor-payloads = { workspace = true }
-bincode = { workspace = true }
 serde = { workspace = true }
 cu-transform = { workspace = true }
 
