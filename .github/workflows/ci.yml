@@ -15,7 +15,7 @@ env:
 
 jobs:
   check:
-    name: Check against copper-rs master
+    name: Check against the matching Copper stack
     runs-on: ubuntu-latest
     steps:
       - name: Check out Zed
@@ -24,11 +24,11 @@ jobs:
           path: zed
           submodules: recursive
 
-      - name: Check out copper-rs master
+      - name: Check out the matching Copper stack
         uses: actions/checkout@v6
         with:
           repository: copper-project/copper-rs
-          ref: master
+          ref: gbin/self-describing-logs-payloads
           path: copper-rs
 
       - name: Install Rust
