@@ -1,5 +1,17 @@
 # zed
 
+## Moved to the Copper monorepo
+
+Development has moved to [copper-project/copper-rs](https://github.com/copper-project/copper-rs):
+
+- **cu-zed:** [`components/sources/cu_zed`](https://github.com/copper-project/copper-rs/tree/master/components/sources/cu_zed)
+- **zed-sdk:** [`components/libs/zed_sdk`](https://github.com/copper-project/copper-rs/tree/master/components/libs/zed_sdk)
+- **zed-sdk-sys:** [`components/libs/zed_sdk_sys`](https://github.com/copper-project/copper-rs/tree/master/components/libs/zed_sdk_sys)
+
+Please use the monorepo versions and submit issues and pull requests there.
+This repository is retained for historical reference; further development
+takes place in the monorepo.
+
 [![CI](https://github.com/copper-project/zed/actions/workflows/ci.yml/badge.svg)](https://github.com/copper-project/zed/actions/workflows/ci.yml)
 ![GitHub last commit](https://img.shields.io/github/last-commit/copper-project/zed)
 ![](https://img.shields.io/badge/Rust-1.95+-orange.svg)
@@ -9,24 +21,11 @@
 
 Small Copper workspace for Stereolabs ZED stereo camera integration.
 
-This repository is a hardware-specific satellite of
-[`copper-project/copper-rs`](https://github.com/copper-project/copper-rs). It is
-kept outside the main runtime workspace so the ZED SDK bindings, native wrapper,
-and Stereolabs-specific build assumptions do not add complexity to Copper's core
-CI and embedded/no_std surfaces.
-
-This repository contains:
+This repository historically contained:
 
 - `components/sources/cu_zed`: the Copper source task and depth-to-pointcloud task
 - `components/libs/zed_sdk`: safe Rust wrapper for the Stereolabs ZED C API
 - `components/libs/zed_sdk_sys`: raw FFI crate and optional vendored `zed-c-api` wrapper
-
-The Copper dependencies use Cargo's multi-location support against
-[`copper-project/copper-rs`](https://github.com/copper-project/copper-rs):
-checked-out builds resolve against the `master` branch, while published crate
-metadata advertises the `1.1.0` crates.io contract. CI can be triggered
-from the main Copper repository by dispatching this `CI` workflow via GitHub's
-`workflow_dispatch` API.
 
 ## Links
 
